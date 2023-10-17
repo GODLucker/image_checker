@@ -16,7 +16,7 @@ public:
 public slots:
     void toggleScreenCapture();
     void captureScreen();
-
+    void storeImageToDatabase(const QImage &image, int, double);
 private:
     double compareImages(const cv::Mat &image1, const cv::Mat &image2);
 
@@ -26,4 +26,4 @@ private:
     cv::Mat lastMat;
 };
 
-#endif // MAINWINDOW_H
+#endif

@@ -4,9 +4,19 @@
 #include <QGuiApplication>
 #include <QPixmap>
 #include <QDebug>
+#include <QByteArray>
+#include <QBuffer>
+#include <QVBoxLayout>
+#include <QPushButton>
+#include <QLabel>
+#include <QTimer>
+
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QSqlError>
 
 cv::Mat QImageToMat(const QImage &image) {
     cv::Mat mat;
@@ -25,7 +35,6 @@ cv::Mat QImageToMat(const QImage &image) {
     return mat;
 }
 
-
 cv::Mat compute_pHash(const cv::Mat &img) {
     cv::Mat img_gray, img_resized, dct_result, dct_low_freq;
     cv::cvtColor(img, img_gray, cv::COLOR_BGR2GRAY);
@@ -42,8 +51,40 @@ cv::Mat compute_pHash(const cv::Mat &img) {
     return hash;
 }
 
+void AppWidget::storeImageToDatabase(const QImage &image, int hashValue, double similarityPercentage) {
+    QByteArray byteArray;
+    QBuffer buffer(&byteArray);
+    image.save(&buffer, "PNG");
+
+    QSqlQuery query;
+    query.prepare("INSERT INTO images (image, hashValue, similarityPercentage) VALUES (?, ?, ?)");
+    query.addBindValue(byteArray);
+    query.addBindValue(hashValue);
+    query.addBindValue(similarityPercentage);
+
+    if (!query.exec    ()) {
+        qWarning() << "Error saving image to database:" << query.lastError().text();
+    }
+}
+
 AppWidget::AppWidget() {
     QVBoxLayout *layout = new QVBoxLayout(this);
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    db.setDatabaseName("/home/lucker/Desktop/image_checker/picture_checker/data.db");
+    if (!db.open()) {
+        qWarning() << "Error opening database:" << db.lastError().text();
+    }
+    if (!QSqlDatabase::isDriverAvailable("QSQLITE")) {
+        qWarning() << "SQLite driver not available";
+        return;
+    }
+    if (!db.tables().contains("images")) {
+        QSqlQuery query;
+        query.exec("CREATE TABLE images (id INTEGER PRIMARY KEY AUTOINCREMENT, image BLOB, hashValue INT, similarityPercentage DOUBLE)");
+    }
+    if (!db.open()) {
+        qWarning() << "Error opening database:" << db.lastError().text();
+    }
 
     startStopButton = new QPushButton("Start", this);
     resultLabel = new QLabel("Similarity: N/A", this);
@@ -62,9 +103,10 @@ void AppWidget::toggleScreenCapture() {
         timer->stop();
         startStopButton->setText("Start");
     } else {
-        timer->start(3000);// Знімок екрану 60sec
+        //timer->start(60000) //Знімок 60 секунд
+	  timer->start(3000);
+	//Test Знімок екрану кожні 3 секунди
         startStopButton->setText("Stop");
-
     }
 }
 
@@ -76,13 +118,24 @@ void AppWidget::captureScreen() {
     QImage currentImage = pixmap.toImage();
     cv::Mat currentMat = QImageToMat(currentImage);
 
+    cv::Mat currentHash = compute_pHash(currentMat);
+    int hashValue = cv::countNonZero(currentHash);
+
+    // Розрахунок відсотка подібності з попереднім зображенням
+    double similarityPercentage = 0.0;
     if (!lastMat.empty()) {
-        double similarity = compareImages(lastMat, currentMat);
-        resultLabel->setText(QString("Similarity: %1%").arg(similarity, 0, 'f', 2));
+        similarityPercentage = compareImages(lastMat, currentMat);
     }
 
+    storeImageToDatabase(currentImage, hashValue, similarityPercentage);
+
+    // Збереження поточного зображення як попереднього для наступного знімка
     lastMat = currentMat;
 
+    // Виведення результату подібності
+    if (similarityPercentage > 0) {
+        resultLabel->setText(QString("Similarity: %1%").arg(similarityPercentage, 0, 'f', 2));
+    }
 }
 
 double AppWidget::compareImages(const cv::Mat &image1, const cv::Mat &image2) {
@@ -93,3 +146,4 @@ double AppWidget::compareImages(const cv::Mat &image1, const cv::Mat &image2) {
     double similarity = (1.0 - distance/64.0) * 100.0; // 64 bits for the 8x8 hash
     return similarity;
 }
+
