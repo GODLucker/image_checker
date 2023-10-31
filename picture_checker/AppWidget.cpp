@@ -10,9 +10,9 @@ AppWidget::AppWidget(QWidget* parent) : QWidget(parent), dbManager() {
 
     startStopButton = new QPushButton("Почати", this);
     resultLabel = new QLabel("Схожість: Немає", this);
-
-    imageView = new QLabel(this);
-    layout->addWidget(imageView);
+//test
+    //imageView = new QLabel(this);
+    //layout->addWidget(imageView);
 
     layout->addWidget(startStopButton);
     layout->addWidget(resultLabel);
@@ -46,7 +46,8 @@ void AppWidget::captureScreen() {
         return;
 
     QPixmap pixmap = screen->grabWindow(0);
-    imageView->setPixmap(pixmap);
+    //test
+    //imageView->setPixmap(pixmap);
     QImage currentImage = pixmap.toImage();
     cv::Mat currentMat = QImageToMat(currentImage);
 
