@@ -29,7 +29,7 @@ private:
     QPushButton* startStopButton;
     QLabel* resultLabel;
     QTimer* timer;
-    QLabel* imageView;
+    //QLabel* imageView; //test
     cv::Mat lastMat; // Для збереження попереднього зображення
     cv::Mat currentMatGray; // Для збереження поточного зображення в відтінках сірого
     DatabaseManager dbManager; // Добавьте эту строку
